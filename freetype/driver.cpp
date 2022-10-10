@@ -1,5 +1,12 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
 #include "ft2build.h"
 #include FT_FREETYPE_H
+
+#include <vector>
 
 int dump_bitmap(void)
 {
@@ -196,31 +203,33 @@ int test_outline_kind(void)
     FT_Library library = nullptr;
     FT_Face face = nullptr;
     FT_Error error;
+    int width, height;
+    std::vector<char> bitmapBuffer;
 
     error = FT_Init_FreeType(&library);
     if (error) {
         return error;
     }
 
-    const char* filename = "C:\\Windows\\Fonts\\arial.ttf";
+    const char* filename = "C:\\Windows\\Fonts\\meiryo.ttc";
 
     error = FT_New_Face(library, filename, 0, &face);
     if (error) {
         goto free;
     }
 
-    error = FT_Set_Char_Size(face, 40 * 64, 0, 100, 0);
+    error = FT_Set_Char_Size(face, 400 * 64, 0, 100, 0);
     if (error) {
         goto free;
     }
 
-    error = FT_Load_Char(face, '$', FT_LOAD_DEFAULT);
+    error = FT_Load_Char(face, 20840+16, FT_LOAD_DEFAULT);
     if (error) {
         goto free;
     }
     FT_GlyphSlot glyph = face->glyph;
 
-    error = FT_Render_Glyph(glyph, FT_RENDER_MODE_MONO);
+    error = FT_Render_Glyph(glyph, FT_RENDER_MODE_NORMAL);
     if (error) {
         goto free;
     }
@@ -238,6 +247,33 @@ int test_outline_kind(void)
             break;
         }
     }
+    FT_Bitmap bitmap = glyph->bitmap;
+
+    width = bitmap.pitch;
+    height = bitmap.rows;
+    bitmapBuffer.resize(bitmap.rows * bitmap.pitch * 4 /*RGBA*/);
+
+    int i = 0;
+    for (int row = 0; row < bitmap.rows; row++) {
+        for (int col = 0; col < bitmap.pitch; col++) {
+            char c = bitmap.buffer[bitmap.pitch * row + col];
+            if (c == 0) {
+                bitmapBuffer[i + 0] = 255; // R
+                bitmapBuffer[i + 1] = 255; // G
+                bitmapBuffer[i + 2] = 255; // B
+                bitmapBuffer[i + 3] = 0;   // A
+            }
+            else {
+                bitmapBuffer[i + 0] = 255; // R
+                bitmapBuffer[i + 1] = 30;  // G
+                bitmapBuffer[i + 2] = 150; // B
+                bitmapBuffer[i + 3] = 255; // A
+            }
+            i += 4;
+        }
+    }
+
+    stbi_write_png("render.png", width, height, 4, bitmapBuffer.data(), 0);
 
 free:
     if (face) {

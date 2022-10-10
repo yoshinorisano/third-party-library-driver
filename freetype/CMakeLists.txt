@@ -5,9 +5,11 @@ set(FREETYPE_DIR ${CMAKE_SOURCE_DIR}/deps/freetype)
 set(FREETYPE_INCLUDE_DIR ${FREETYPE_DIR}/include)
 set(FREETYPE_LIBRARY_DIR ${FREETYPE_DIR}/build/Debug)
 
+set(STB_DIR ${CMAKE_SOURCE_DIR}/deps/stb)
+
 set(SOURCE_FILES driver.cpp)
 
-include_directories(${FREETYPE_INCLUDE_DIR})
+include_directories(${FREETYPE_INCLUDE_DIR} ${STB_DIR})
 
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCE_FILES})
 

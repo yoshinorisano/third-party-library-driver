@@ -7,6 +7,8 @@ pushd freetype
 cmake -B build
 popd
 
+git clone https://github.com/nothings/stb.git
+
 popd
 
 cmake -B build
