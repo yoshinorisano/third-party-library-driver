@@ -143,6 +143,113 @@ free:
     return error;
 }
 
+enum OutlineKind {
+    Undefined,
+    Interior,
+    Exterior,
+};
+
+// Test vertex winding order
+OutlineKind find_outline_kind(FT_Outline* outline, unsigned int index)
+{
+    if (index >= outline->n_contours) {
+        return Undefined;
+    }
+    int first, last;
+    if (index == 0) {
+        first = 0;
+    } else {
+        first = outline->contours[index - 1] + 1;
+    }
+    last = outline->contours[index];
+
+    // Find vertex winding order to determine the outline is interior or exterior.
+    // https://www.youtube.com/watch?v=mkJDCK6EEJQ
+    // See also: FT_Outline_Get_Orientation
+    //
+    // The following calculation of "h" is optimized: elminated divide by 2.
+    // This optimization does not affect the result, because only sign of "s"
+    // is important for us.
+    FT_Vector* points = outline->points;
+    FT_Vector* prev = &points[last];
+    FT_Vector* curr;
+    long long s = 0;
+    for (int i = first; i <= last; i++) {
+        curr = &points[i];
+        int w = curr->x - prev->x;
+        int h = curr->y + curr->y;
+        s += w * h;
+        prev = &points[i];
+    }
+
+    if (s > 0) {
+        return Interior;
+    } else if (s < 0) {
+        return Exterior;
+    } else {
+        return Undefined;
+    }
+}
+
+int test_outline_kind(void)
+{
+    FT_Library library = nullptr;
+    FT_Face face = nullptr;
+    FT_Error error;
+
+    error = FT_Init_FreeType(&library);
+    if (error) {
+        return error;
+    }
+
+    const char* filename = "C:\\Windows\\Fonts\\arial.ttf";
+
+    error = FT_New_Face(library, filename, 0, &face);
+    if (error) {
+        goto free;
+    }
+
+    error = FT_Set_Char_Size(face, 40 * 64, 0, 100, 0);
+    if (error) {
+        goto free;
+    }
+
+    error = FT_Load_Char(face, '$', FT_LOAD_DEFAULT);
+    if (error) {
+        goto free;
+    }
+    FT_GlyphSlot glyph = face->glyph;
+
+    error = FT_Render_Glyph(glyph, FT_RENDER_MODE_MONO);
+    if (error) {
+        goto free;
+    }
+
+    FT_Outline outline = glyph->outline;
+
+    for (int i = 0; i < outline.n_contours; i++) {
+        OutlineKind kind = find_outline_kind(&outline, i);
+        switch (kind) {
+        case Interior:
+            printf("outline(%d): Interior\n", i);
+            break;
+        case Exterior:
+            printf("outline(%d): Exterior\n", i);
+            break;
+        }
+    }
+
+free:
+    if (face) {
+        FT_Done_Face(face);
+    }
+    if (library) {
+        FT_Done_FreeType(library);
+    }
+
+    return error;
+}
+
 #include "freetype/ftstroke.h"
 
 int test_stroker(void)
@@ -260,7 +367,8 @@ free:
 
 int main(void)
 {
+    return test_outline_kind();
     // return dump_bitmap();
-    // return dump_outline();
-    return test_stroker();
+    //return dump_outline();
+    //return test_stroker();
 }
