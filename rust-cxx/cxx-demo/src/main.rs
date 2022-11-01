@@ -1,5 +1,10 @@
 #[cxx::bridge]
 mod ffi {
+    struct BlobMetadata {
+        size: usize,
+        tags: Vec<String>,
+    }
+
     extern "Rust" {
         type MultiBuf;
 
@@ -13,6 +18,8 @@ mod ffi {
 
         fn new_blobstore_client() -> UniquePtr<BlobstoreClient>;
         fn put(&self, parts: &mut MultiBuf) -> u64;
+        fn tag(&self, blobid: u64, tag: &str);
+        fn metadata(&self, blobid: u64) -> BlobMetadata;
     }
 }
 
@@ -39,4 +46,12 @@ fn main() {
     let mut buf = MultiBuf { chunks, pos: 0 };
     let blobid = client.put(&mut buf);
     println!("blobid = {}", blobid);
+
+    // Add a tag.
+    client.tag(blobid, "rust");
+    client.tag(blobid, "programming");
+
+    // Read back the tags.
+    let metadata = client.metadata(blobid);
+    println!("tags = {:?}", metadata.tags);
 }

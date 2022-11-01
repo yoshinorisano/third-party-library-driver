@@ -1,9 +1,25 @@
 #include "cxx-demo/include/blobstore.h"
 #include "cxx-demo/src/main.rs.h"
+#include <algorithm>
 #include <functional>
+#include <set>
 #include <string>
+#include <unordered_map>
 
-BlobstoreClient::BlobstoreClient() {}
+// Toy implementation of an in-memory blobstore.
+//
+// In reality the implementation of BlobstoreClient could be a large
+// complex C++ library.
+class BlobstoreClient::impl {
+    friend BlobstoreClient;
+    using Blob = struct {
+        std::string data;
+        std::set<std::string> tags;
+    };
+    std::unordered_map<uint64_t, Blob> blobs;
+};
+
+BlobstoreClient::BlobstoreClient() : impl(new class BlobstoreClient::impl) {}
 
 std::unique_ptr<BlobstoreClient> new_blobstore_client() {
     return std::unique_ptr<BlobstoreClient>(new BlobstoreClient());
@@ -23,5 +39,22 @@ uint64_t BlobstoreClient::put(MultiBuf &buf) const {
 
     // Pretend we did something useful to persist the data.
     auto blobid = std::hash<std::string>{}(contents);
+    impl->blobs[blobid] = {std::move(contents), {}};
     return blobid;
+}
+
+// Add tag to an existing blob.
+void BlobstoreClient::tag(uint64_t blobid, rust::Str tag) const {
+    impl->blobs[blobid].tags.emplace(tag);
+}
+
+BlobMetadata BlobstoreClient::metadata(uint64_t blobid) const {
+    BlobMetadata metadata{};
+    auto blob = impl->blobs.find(blobid);
+    if (blob != impl->blobs.end()) {
+        metadata.size = blob->second.data.size();
+        std::for_each(blob->second.tags.cbegin(), blob->second.tags.cend(),
+            [&](auto &t) { metadata.tags.emplace_back(t); });
+        return metadata;
+    }
 }
